@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EcoLiquidity UI</title>
+    <script src="https://unpkg.com/@stacks/connect@latest/dist/index.umd.js"></script>
+    <script src="https://unpkg.com/@stacks/transactions@latest/dist/index.umd.js"></script>
+</head>
+
+<body>
+    <button id="connectWallet">Connect Wallet</button>
+    <input id="depositAmount" placeholder="Deposit Amount (STX)" />
+    <button id="depositBtn">Deposit</button>
+    <input id="withdrawAmount" placeholder="Withdraw Amount (STX)" />
+    <button id="withdrawBtn">Withdraw</button>
+
+    <script>
+        const appConfig = new connect.AppConfig({ appName: 'EcoLiquidity' });
+        const userSession = new connect.UserSession({ appConfig });
+
+        document.getElementById('connectWallet').onclick = async () => {
+            connect.showConnect({ userSession });
+        };
+
+        async function makeContractCall(functionName, args) {
+            const txOptions = {
+                contractAddress: 'SP000000000000000000002Q6VF78',  // Deployed address
+                contractName: 'eco-liquidity-pool',
+                functionName,
+                functionArgs: args,
+                senderKey: userSession.loadUserData().profile.stxAddress.testnet,  // Or mainnet
+                network: 'testnet',  // Switch to 'mainnet'
+            };
+            const transaction = await transactions.makeContractCall(txOptions);
+            return connect.openSTXTransfer(transaction);  // Or broadcast directly
+        }
+
+        document.getElementById('depositBtn').onclick = async () => {
+            const amount = document.getElementById('depositAmount').value;
+            await makeContractCall('deposit-stx', [transactions.uintCV(amount * 1000000)]);  // MicroSTX
+        };
+
+        document.getElementById('withdrawBtn').onclick = async () => {
+            const amount = document.getElementById('withdrawAmount').value;
+            await makeContractCall('withdraw-stx', [transactions.uintCV(amount * 1000000)]);
+        };
+    </script>
+</body>
+
+</html>
