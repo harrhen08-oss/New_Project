@@ -1,21 +1,50 @@
+import { Clarinet, Tx, Chain, Account, types } from '@clarinet/v1';
+import { assertEquals } from 'https://deno.land/std@0.90.0/testing/asserts.ts';
 
-import { describe, expect, it } from "vitest";
+Clarinet.test({
+  name: "Deposit STX successfully",
+  async fn(chain: Chain, accounts: Map<string, Account>) {
+    const deployer = accounts.get('deployer')!;
+    const amount = 1000;
 
-const accounts = simnet.getAccounts();
-const address1 = accounts.get("wallet_1")!;
+    let block = chain.mineBlock([
+      Tx.contractCall('simple-eco-pool', 'deposit-stx', [types.uint(amount)], deployer.address),
+    ]);
 
-/*
-  The test below is an example. To learn more, read the testing documentation here:
-  https://docs.hiro.so/stacks/clarinet-js-sdk
-*/
+    assertEquals(block.receipts.length, 1);
+    block.receipts[0].result.expectOk().expectUint(amount);
+  },
+});
 
-describe("example tests", () => {
-  it("ensures simnet is well initialised", () => {
-    expect(simnet.blockHeight).toBeDefined();
-  });
+Clarinet.test({
+  name: "Withdraw STX with interest and donation",
+  async fn(chain: Chain, accounts: Map<string, Account>) {
+    const deployer = accounts.get('deployer')!;
+    const amount = 1000;
 
-  // it("shows an example", () => {
-  //   const { result } = simnet.callReadOnlyFn("counter", "get-counter", [], address1);
-  //   expect(result).toBeUint(0);
-  // });
+    chain.mineBlock([
+      Tx.contractCall('simple-eco-pool', 'deposit-stx', [types.uint(amount)], deployer.address),
+    ]);
+
+    let block = chain.mineBlock([
+      Tx.contractCall('simple-eco-pool', 'withdraw-stx', [types.uint(amount)], deployer.address),
+    ]);
+
+    block.receipts[0].result.expectOk();
+    block.receipts[0].result.expectTuple().withdrawn.expectUint(amount);
+    block.receipts[0].result.expectTuple().donated.expectUint(10); // 1% of 1000
+  },
+});
+
+Clarinet.test({
+  name: "Fail deposit with zero amount",
+  async fn(chain: Chain, accounts: Map<string, Account>) {
+    const deployer = accounts.get('deployer')!;
+
+    let block = chain.mineBlock([
+      Tx.contractCall('simple-eco-pool', 'deposit-stx', [types.uint(0)], deployer.address),
+    ]);
+
+    block.receipts[0].result.expectErr().expectUint(100);
+  },
 });
